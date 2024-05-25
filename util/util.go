@@ -76,6 +76,8 @@ func GetAttestationFromPURL(purl, graphqlEndpoint string) {
 	for i, p := range path {
 		fmt.Printf("%d, %+v\n", i, p)
 	}
+
+	// bringing the attestation to local disk and returning the directory
 }
 
 func queryKnownNeighbors(ctx context.Context, gqlclient graphql.Client, subjectQueryID string) (*neighbors, []string, error) {
