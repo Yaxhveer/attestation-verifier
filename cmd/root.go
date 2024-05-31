@@ -1,15 +1,11 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/Khan/genqlient/graphql"
 	model "github.com/guacsec/guac/pkg/assembler/clients/generated"
 	"github.com/in-toto/attestation-verifier/util"
 	"github.com/in-toto/attestation-verifier/verifier"
@@ -145,62 +141,4 @@ func verify(cmd *cobra.Command, args []string) error {
 
 	// return verifier.Verify(layout, attestations, parameters)
 	return err
-}
-
-func queryKnownNeighbors(ctx context.Context, gqlclient graphql.Client, subjectQueryID string) (*neighbors, []string, error) {
-	collectedNeighbors := &neighbors{}
-	var path []string
-	neighborResponse, err := model.Neighbors(ctx, gqlclient, subjectQueryID, []model.Edge{})
-	if err != nil {
-		return nil, nil, fmt.Errorf("error querying neighbors: %v", err)
-	}
-	for _, neighbor := range neighborResponse.Neighbors {
-		switch v := neighbor.(type) {
-		case *model.NeighborsNeighborsHasSLSA:
-			collectedNeighbors.hasSLSAs = append(collectedNeighbors.hasSLSAs, v)
-			path = append(path, v.Id)
-		case *model.NeighborsNeighborsIsOccurrence:
-			collectedNeighbors.occurrences = append(collectedNeighbors.occurrences, v)
-			path = append(path, v.Id)
-		default:
-			continue
-		}
-	}
-	return collectedNeighbors, path, nil
-}
-
-func getAttestationPath(ctx context.Context, gqlclient graphql.Client, collectedNeighbors *neighbors) []string {
-	path := []string{}
-
-	if len(collectedNeighbors.hasSLSAs) > 0 {
-		for _, slsa := range collectedNeighbors.hasSLSAs {
-			path = append(path, slsa.Slsa.Origin)
-		}
-	} else {
-		// if there is an isOccurrence, check to see if there are slsa attestation associated with it
-		for _, occurrence := range collectedNeighbors.occurrences {
-			artifactFilter := &model.ArtifactSpec{
-				Algorithm: &occurrence.Artifact.Algorithm,
-				Digest:    &occurrence.Artifact.Digest,
-			}
-			artifactResponse, err := model.Artifacts(ctx, gqlclient, *artifactFilter)
-			if err != nil {
-				log.Printf("error querying for artifacts: %v", err)
-			}
-			if len(artifactResponse.Artifacts) != 1 {
-				log.Printf("failed to located artifacts based on (algorithm:digest)")
-			}
-			neighborResponseHasSLSA, err := model.Neighbors(ctx, gqlclient, artifactResponse.Artifacts[0].Id, []model.Edge{model.EdgeArtifactHasSlsa})
-			if err != nil {
-				log.Printf("error querying neighbors: %v", err)
-			} else {
-				for _, neighborHasSLSA := range neighborResponseHasSLSA.Neighbors {
-					if hasSLSA, ok := neighborHasSLSA.(*model.NeighborsNeighborsHasSLSA); ok {
-						path = append(path, hasSLSA.Slsa.Origin)
-					}
-				}
-			}
-		}
-	}
-	return path
 }

@@ -1,4 +1,5 @@
-// A prototype to find the attestations given a PURL. It follows the same implementation as GUAC for now.
+// A prototype to find the slsa attestations.
+// ./attest -l layouts/layout.yml -p pkg:guac/generic/gs://kubernetes-release/release/v1.24.1/bin/linux/arm/kubelet
 package util
 
 import (
@@ -14,16 +15,14 @@ import (
 )
 
 type neighbors struct {
-	occurrences  []*model.NeighborsNeighborsIsOccurrence
-	hasSLSAs     []*model.NeighborsNeighborsHasSLSA
+	occurrences []*model.NeighborsNeighborsIsOccurrence
+	hasSLSAs    []*model.NeighborsNeighborsHasSLSA
 }
 
 func GetAttestationFromPURL(purl, graphqlEndpoint string) {
 	ctx := context.Background()
 	httpClient := http.Client{Transport: cli.HTTPHeaderTransport(ctx, "", http.DefaultTransport)}
 	gqlclient := graphql.NewClient(graphqlEndpoint, &httpClient)
-
-	var path []string
 
 	pkgInput, err := helpers.PurlToPkg(purl)
 	if err != nil {
@@ -60,24 +59,14 @@ func GetAttestationFromPURL(purl, graphqlEndpoint string) {
 		log.Fatalf("error querying for package name neighbors: %v", err)
 	}
 
-	path = getAttestationPath(ctx, gqlclient, pkgNameNeighbors)
-
-	for i, p := range path {
-		fmt.Printf("%d, %+v\n", i, p)
-	}
+	getAttestation(ctx, gqlclient, pkgNameNeighbors)
 
 	pkgVersionNeighbors, _, err := queryKnownNeighbors(ctx, gqlclient, pkgResponse.Packages[0].Namespaces[0].Names[0].Versions[0].Id)
 	if err != nil {
 		log.Fatalf("error querying for package version neighbors: %v", err)
 	}
 
-	path = getAttestationPath(ctx, gqlclient, pkgVersionNeighbors)
-
-	for i, p := range path {
-		fmt.Printf("%d, %+v\n", i, p)
-	}
-
-	// bringing the attestation to local disk and returning the directory
+	getAttestation(ctx, gqlclient, pkgVersionNeighbors)	
 }
 
 func queryKnownNeighbors(ctx context.Context, gqlclient graphql.Client, subjectQueryID string) (*neighbors, []string, error) {
@@ -102,12 +91,11 @@ func queryKnownNeighbors(ctx context.Context, gqlclient graphql.Client, subjectQ
 	return collectedNeighbors, path, nil
 }
 
-func getAttestationPath(ctx context.Context, gqlclient graphql.Client, collectedNeighbors *neighbors) []string {
-	path := []string{}
-
+func getAttestation(ctx context.Context, gqlclient graphql.Client, collectedNeighbors *neighbors) {
 	if len(collectedNeighbors.hasSLSAs) > 0 {
 		for _, slsa := range collectedNeighbors.hasSLSAs {
-			path = append(path, slsa.Slsa.Origin)
+			log.Printf("a: %+v\n", slsa)
+			// Attestation can be created
 		}
 	} else {
 		// if there is an isOccurrence, check to see if there are slsa attestation associated with it
@@ -129,11 +117,12 @@ func getAttestationPath(ctx context.Context, gqlclient graphql.Client, collected
 			} else {
 				for _, neighborHasSLSA := range neighborResponseHasSLSA.Neighbors {
 					if hasSLSA, ok := neighborHasSLSA.(*model.NeighborsNeighborsHasSLSA); ok {
-						path = append(path, hasSLSA.Slsa.Origin)
+						log.Printf("b: %+v\n", hasSLSA.AllSLSATree)
+						log.Printf("c: %+v\n", hasSLSA.Slsa)
+						// Attestation can be created
 					}
 				}
 			}
 		}
 	}
-	return path
 }
