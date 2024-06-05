@@ -6,17 +6,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	model "github.com/guacsec/guac/pkg/assembler/clients/generated"
 	"github.com/in-toto/attestation-verifier/util"
 	"github.com/in-toto/attestation-verifier/verifier"
 	"github.com/secure-systems-lab/go-securesystemslib/dsse"
 	"github.com/spf13/cobra"
 )
-
-type neighbors struct {
-	occurrences  []*model.NeighborsNeighborsIsOccurrence
-	hasSLSAs     []*model.NeighborsNeighborsHasSLSA
-}
 
 var rootCmd = &cobra.Command{
 	Use:  "ite-10-verifier",

@@ -12,7 +12,12 @@ import (
 	model "github.com/guacsec/guac/pkg/assembler/clients/generated"
 	"github.com/guacsec/guac/pkg/assembler/helpers"
 	"github.com/guacsec/guac/pkg/cli"
+	// slsa01 "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/v0.1"
+	slsa02 "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/v0.2"
+	// slsa1 "github.com/in-toto/in-toto-golang/in_toto/slsa_provenance/v1"
 )
+
+type SlsaPredicate interface{}
 
 type neighbors struct {
 	occurrences []*model.NeighborsNeighborsIsOccurrence
@@ -66,7 +71,7 @@ func GetAttestationFromPURL(purl, graphqlEndpoint string) {
 		log.Fatalf("error querying for package version neighbors: %v", err)
 	}
 
-	getAttestation(ctx, gqlclient, pkgVersionNeighbors)	
+	getAttestation(ctx, gqlclient, pkgVersionNeighbors)
 }
 
 func queryKnownNeighbors(ctx context.Context, gqlclient graphql.Client, subjectQueryID string) (*neighbors, []string, error) {
@@ -94,7 +99,14 @@ func queryKnownNeighbors(ctx context.Context, gqlclient graphql.Client, subjectQ
 func getAttestation(ctx context.Context, gqlclient graphql.Client, collectedNeighbors *neighbors) {
 	if len(collectedNeighbors.hasSLSAs) > 0 {
 		for _, slsa := range collectedNeighbors.hasSLSAs {
-			log.Printf("a: %+v\n", slsa)
+
+			slsaPred := slsa02.ProvenancePredicate{}
+			err := ParseSlsaPredicate(&slsaPred, slsa.Slsa.SlsaPredicate)
+			if err != nil {
+				log.Printf("error parsing the predicate: %v", err)
+				return
+			}
+			log.Printf("Predicate: %+v\n", slsaPred)
 			// Attestation can be created
 		}
 	} else {
@@ -117,9 +129,14 @@ func getAttestation(ctx context.Context, gqlclient graphql.Client, collectedNeig
 			} else {
 				for _, neighborHasSLSA := range neighborResponseHasSLSA.Neighbors {
 					if hasSLSA, ok := neighborHasSLSA.(*model.NeighborsNeighborsHasSLSA); ok {
-						log.Printf("b: %+v\n", hasSLSA.AllSLSATree)
-						log.Printf("c: %+v\n", hasSLSA.Slsa)
-						// Attestation can be created
+
+						slsaPred := slsa02.ProvenancePredicate{}
+						err := ParseSlsaPredicate(&slsaPred, hasSLSA.Slsa.SlsaPredicate)
+						if err != nil {
+							log.Printf("error parsing the predicate: %v", err)
+							return
+						}
+						log.Printf("Predicate: %+v\n", slsaPred)
 					}
 				}
 			}
