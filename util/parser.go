@@ -32,7 +32,7 @@ func ParseSlsaPredicate(s *slsa02.ProvenancePredicate, slsaPredicate []model.All
 		}
 	}
 
-	jsonData, err := json.MarshalIndent(result["slsa"], "", "  ")
+	jsonData, err := json.Marshal(result["slsa"])
 	if err != nil {
 		return err
 	}

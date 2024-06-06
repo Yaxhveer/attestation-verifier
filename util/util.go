@@ -1,4 +1,4 @@
-// A prototype to find the slsa attestations.
+// A prototype to find the slsa attestations currently uses GUAC implementation to find the slsa using purl.
 // ./attest -l layouts/layout.yml -p pkg:guac/generic/gs://kubernetes-release/release/v1.24.1/bin/linux/arm/kubelet
 package util
 
